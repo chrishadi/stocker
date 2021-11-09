@@ -13,7 +13,10 @@ export default {
   ],
   optimize: {
     /* Example: Bundle your final build: */
-    // "bundle": true,
+    'bundle': true,
+    'entrypoints': ['assets/chart.jsx'],
+    'minify': true,
+    'target': 'es2018'
   },
   packageOptions: {
     /* ... */
