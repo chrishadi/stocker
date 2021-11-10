@@ -14,7 +14,7 @@ export default {
   optimize: {
     /* Example: Bundle your final build: */
     'bundle': true,
-    'entrypoints': ['assets/chart.jsx'],
+    'entrypoints': ['chart.js'],
     'minify': true,
     'target': 'es2018'
   },
