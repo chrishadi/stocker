@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom'
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete'
 import TextField from '@mui/material/TextField'
 import { createChart } from 'lightweight-charts'
+import FibonacciPivot from './fibonacci_pivot'
 
 class StockChart extends React.Component {
   constructor(props) {
@@ -11,6 +12,7 @@ class StockChart extends React.Component {
 
     this.state = {
       loading: true,
+      lastDateData: null,
       options: [],
       symbol: this.props.symbol,
     }
@@ -21,8 +23,8 @@ class StockChart extends React.Component {
 
     this.setChartContainerRef = element => this.chartContainer = element
     this.onPickerChange = (_, newSymbol) => {
-      this.setState({symbol: newSymbol})
-      this.populateChartSeries(newSymbol)
+      this.setState({loading: true})
+      this.updateChartSeries(newSymbol)
     }
 
     fetch('/symbols')
@@ -34,14 +36,17 @@ class StockChart extends React.Component {
     const chart = createChart(this.chartContainer)
     this.candlestickSeries = chart.addCandlestickSeries()
     if (this.state.symbol) {
-      this.populateChartSeries(this.state.symbol)
+      this.updateChartSeries(this.state.symbol)
     }
   }
 
-  populateChartSeries(symbol) {
+  updateChartSeries(symbol) {
     fetch(`/prices/${symbol}`)
     .then(response => response.json())
-    .then(series => this.candlestickSeries.setData(series))
+    .then(series => {
+      this.setState({ loading: false, symbol: symbol, lastDateData: series[series.length-1] })
+      this.candlestickSeries.setData(series)
+    })
   }
 
   render() {
@@ -59,6 +64,7 @@ class StockChart extends React.Component {
           renderInput={(params) => <TextField {...params} label="Symbol" />}
         />
         <div id="lightweight-chart-container" ref={this.setChartContainerRef} />
+        <FibonacciPivot data={this.state.lastDateData} />
       </div>
     )
   }
