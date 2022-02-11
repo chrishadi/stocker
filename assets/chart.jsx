@@ -29,7 +29,7 @@ class StockChart extends React.Component {
 
     fetch('/symbols')
     .then(response => response.json())
-    .then(symbols => { this.setState({ loading: false, options: symbols }) } )
+    .then(json => { this.setState({ loading: false, options: json.data }) } )
   }
 
   componentDidMount() {
@@ -43,7 +43,8 @@ class StockChart extends React.Component {
   updateChartSeries(symbol) {
     fetch(`/prices/${symbol}`)
     .then(response => response.json())
-    .then(series => {
+    .then(json => {
+      let series = json.data
       this.setState({ loading: false, symbol: symbol, lastDateData: series[series.length-1] })
       this.candlestickSeries.setData(series)
     })

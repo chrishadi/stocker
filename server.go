@@ -24,7 +24,12 @@ type Config struct {
 	}
 }
 
-var pgOpts *pg.Options
+type Handler struct {
+	symbolRepo stockSymbolRepository
+	priceRepo  stockPriceRepository
+}
+
+var handler Handler
 
 func main() {
 	var cfg Config
@@ -33,58 +38,66 @@ func main() {
 		panic(err)
 	}
 
-	pgOpts = &pg.Options{
+	pgOpts := &pg.Options{
 		Network:  cfg.Pg.Network,
 		Addr:     cfg.Pg.Addr,
 		Database: cfg.Pg.Database,
 		User:     cfg.Pg.User,
 		Password: cfg.Pg.Password,
 	}
+	db := pg.Connect(pgOpts)
+	defer db.Close()
+
+	handler = Handler{&pgStockSymbolRepository{db}, &pgStockPriceRepository{db}}
 
 	e := echo.New()
 	e.Use(middleware.Gzip())
-	e.GET("/", getHome)
-	e.GET("symbols", getSymbols)
-	e.GET("/prices/:symbol", getPricesBySymbol)
+	e.Use(middleware.Logger())
+	e.GET("/", handler.getHome)
+	e.GET("symbols", handler.getSymbols)
+	e.GET("/prices/:symbol", handler.getPricesBySymbol)
 	e.Static("/static", "static")
 	e.Logger.Fatal(e.Start(":" + strconv.Itoa(cfg.Port)))
 }
 
-func getHome(ctx echo.Context) error {
-	tmpl := template.Must(template.ParseGlob("views/*.html"))
+func (h Handler) getHome(ctx echo.Context) error {
+	tmpl, err := template.ParseGlob("views/*.html")
+	if err != nil {
+		return err
+	}
+
 	sb := &strings.Builder{}
 	tmpl.ExecuteTemplate(sb, "chart", nil)
 	return ctx.HTML(http.StatusOK, sb.String())
 }
 
-func getSymbols(ctx echo.Context) error {
-	db := pg.Connect(pgOpts)
-	defer db.Close()
-	repo := &pgStockSymbolRepository{db: db}
-	symbols, err := repo.get()
+func (h Handler) getSymbols(ctx echo.Context) error {
+	symbols, err := h.symbolRepo.get()
 	if err != nil {
-		ctx.Echo().Logger.Error(err)
-		return ctx.NoContent(http.StatusInternalServerError)
+		return err
 	}
+
 	syms := make([]string, len(symbols))
 	for i, symbol := range symbols {
 		syms[i] = symbol.Symbol
 	}
-	return ctx.JSON(http.StatusOK, syms)
+	return ctx.JSON(http.StatusOK, wrap(syms))
 }
 
-func getPricesBySymbol(ctx echo.Context) error {
+func (h Handler) getPricesBySymbol(ctx echo.Context) error {
 	symbol := strings.ToUpper(ctx.Param("symbol")) + ".XIDX"
-	db := pg.Connect(pgOpts)
-	defer db.Close()
-	repo := &pgStockPriceRepository{db: db}
-	prices, err := repo.getBySymbol(symbol)
+	prices, err := h.priceRepo.getBySymbol(symbol)
 	if err != nil {
-		ctx.Echo().Logger.Error(err)
-		return ctx.NoContent(http.StatusInternalServerError)
+		return err
 	}
+
 	if prices == nil {
 		return ctx.NoContent(http.StatusNotFound)
 	}
-	return ctx.JSON(http.StatusOK, prices)
+
+	return ctx.JSON(http.StatusOK, wrap(prices))
+}
+
+func wrap(v interface{}) map[string]interface{} {
+	return map[string]interface{}{"data": v}
 }
