@@ -54,6 +54,7 @@ class StockChart extends React.Component {
     return (
      <div id="stock-chart">
         <Autocomplete
+          autoHighlight
           disableClearable
           selectOnFocus
           filterOptions={this.pickerFilterOptions}
